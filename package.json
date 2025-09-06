@@ -3,7 +3,6 @@
   "version": "0.0.1",
   "description": "",
   "author": "Ticketer Africa",
-  "type": "module",
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
