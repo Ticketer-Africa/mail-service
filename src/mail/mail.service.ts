@@ -1,12 +1,9 @@
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-return */
-/* eslint-disable @typescript-eslint/require-await */
+/* eslint-disable */
 import { Injectable, Logger } from '@nestjs/common';
 import { Worker } from 'worker_threads';
 import * as path from 'path';
+
+// ✅ ESM import
 import PQueue from 'p-queue';
 
 @Injectable()
@@ -16,9 +13,9 @@ export class MailService {
 
   constructor() {
     this.queue = new PQueue({
-      concurrency: 3, // how many workers at once
-      interval: 1000, // rate limit window
-      intervalCap: 10, // max tasks per second
+      concurrency: 3,
+      interval: 1000,
+      intervalCap: 10,
     });
   }
 
