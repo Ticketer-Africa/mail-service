@@ -1,20 +1,30 @@
+/* eslint-disable @typescript-eslint/no-floating-promises */
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
-/* eslint-disable @typescript-eslint/require-await */
 import { Injectable, Logger } from '@nestjs/common';
 import { Worker } from 'worker_threads';
 import * as path from 'path';
-import PQueue from 'p-queue';
+
+let PQueue: any;
 
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
-  private readonly queue: PQueue;
+  private queue: any;
 
   constructor() {
+    this.initQueue();
+  }
+
+  private async initQueue() {
+    if (!PQueue) {
+      const mod = await import('p-queue'); // ✅ dynamic import (works in CJS)
+      PQueue = mod.default;
+    }
+
     this.queue = new PQueue({
       concurrency: 3, // how many workers at once
       interval: 1000, // rate limit window
@@ -23,6 +33,7 @@ export class MailService {
   }
 
   async sendMail(to: string, subject: string, html: string, from?: string) {
+    await this.initQueue(); // ensure queue is ready before using
     return this.queue.add(() => this.runWorker({ to, subject, html, from }));
   }
 
