@@ -7,11 +7,16 @@ async function bootstrap() {
 
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true, // strip unknown fields
+      whitelist: true,
       forbidNonWhitelisted: true,
-      transform: true, // auto-transform payloads into DTOs
+      transform: true,
+      transformOptions: { enableImplicitConversion: true },
     }),
   );
-  await app.listen(process.env.PORT ?? 3000);
+
+  const port = process.env.PORT ?? 5000;
+  await app.listen(port);
+  console.log(`Server running on port ${port}`);
 }
-bootstrap();
+
+bootstrap().catch((err) => console.error('Bootstrap error:', err));
