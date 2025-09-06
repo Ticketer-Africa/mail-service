@@ -2,7 +2,8 @@
   "name": "mail-service",
   "version": "0.0.1",
   "description": "",
-  "author": "",
+  "author": "Ticketer Africa",
+  "type": "module",
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
