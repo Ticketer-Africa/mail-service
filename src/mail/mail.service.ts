@@ -1,25 +1,35 @@
-/* eslint-disable */
+/* eslint-disable @typescript-eslint/no-floating-promises */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-return */
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { Injectable, Logger } from '@nestjs/common';
 import { Worker } from 'worker_threads';
 import * as path from 'path';
 
-// ✅ ESM import
-import PQueue from 'p-queue';
-
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
-  private readonly queue: PQueue;
+  private queue: any;
 
   constructor() {
-    this.queue = new PQueue({
-      concurrency: 3,
-      interval: 1000,
-      intervalCap: 10,
-    });
+    (async () => {
+      const { default: PQueue } = await import('p-queue');
+      this.queue = new PQueue({
+        concurrency: 3,
+        interval: 1000,
+        intervalCap: 10,
+      });
+    })();
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async sendMail(to: string, subject: string, html: string, from?: string) {
+    if (!this.queue) {
+      // fallback until queue is ready
+      throw new Error('Queue not initialized yet');
+    }
     return this.queue.add(() => this.runWorker({ to, subject, html, from }));
   }
 
