@@ -6,7 +6,7 @@ export class SendMailDto {
   to: string;
 
   @IsString()
-  @IsNotEmpty({ message: 'Subject is required' })
+  @IsNotEmpty({ message: 'Subject is highly required' })
   subject: string;
 
   @IsString()
