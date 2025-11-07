@@ -1,66 +1,108 @@
-/* eslint-disable @typescript-eslint/no-floating-promises */
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-return */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+
 import { Injectable, Logger } from '@nestjs/common';
 import { Worker } from 'worker_threads';
-import * as path from 'path';
+import path from 'path';
 
-let PQueue: any;
+// Cache the PQueue class
+let PQueuePromise: Promise<any> | null = null;
 
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
-  private queue: any;
+  // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
+  private queue: any | null = null;
+  private queueInitPromise: Promise<void> | null = null;
 
   constructor() {
-    this.initQueue();
+    // Don't await here — constructor can't be async
+    // We'll lazy-init on first use
   }
 
-  private async initQueue() {
-    if (!PQueue) {
-      const mod = await import('p-queue'); // ✅ dynamic import (works in CJS)
-      PQueue = mod.default;
+  private async ensureQueue(): Promise<any> {
+    if (this.queue) return this.queue;
+
+    if (this.queueInitPromise) {
+      await this.queueInitPromise; // Wait if already initializing
+      return this.queue!;
     }
 
+    this.queueInitPromise = this.initQueue();
+    await this.queueInitPromise;
+    return this.queue!;
+  }
+
+  private async initQueue(): Promise<void> {
+    if (!PQueuePromise) {
+      PQueuePromise = import('p-queue').then((mod) => mod.default);
+    }
+
+    const PQueue = await PQueuePromise;
+
     this.queue = new PQueue({
-      concurrency: 3, // how many workers at once
-      interval: 1000, // rate limit window
-      intervalCap: 10, // max tasks per second
+      concurrency: 3,
+      interval: 1000,
+      intervalCap: 10,
     });
+
+    this.logger.log('Mail queue initialized with concurrency=3, rate=10/sec');
   }
 
-  async sendMail(to: string, subject: string, html: string, from?: string) {
-    await this.initQueue(); // ensure queue is ready before using
-    return this.queue.add(() => this.runWorker({ to, subject, html, from }));
+  async sendMail(
+    to: string,
+    subject: string,
+    html: string,
+    from?: string,
+  ): Promise<any> {
+    const queue = await this.ensureQueue(); // Safe: always returns initialized queue
+    return queue.add(() => this.runWorker({ to, subject, html, from }));
   }
 
-  private runWorker(data: any): Promise<any> {
+  private runWorker(data: {
+    to: string;
+    subject: string;
+    html: string;
+    from?: string;
+  }): Promise<any> {
     return new Promise((resolve, reject) => {
-      const worker = new Worker(path.resolve(__dirname, 'mail.worker.js'), {
-        workerData: data,
-      });
+      const workerPath = path.resolve(__dirname, 'mail.worker.js');
+      const worker = new Worker(workerPath, { workerData: data });
 
-      worker.on('message', (msg) => {
+      const cleanup = () => {
+        worker.removeAllListeners();
+      };
+
+      worker.on('message', (msg: any) => {
+        cleanup();
         if (msg.success) {
-          this.logger.log(`✅ Mail sent to ${msg.to}`);
+          this.logger.log(`Mail sent to ${msg.to}`);
           resolve(msg);
         } else {
-          this.logger.error(`❌ Failed mail to ${msg.to}`, msg.error);
+          this.logger.error(`Failed mail to ${msg.to}`, msg.error);
           reject(new Error(msg.error));
         }
       });
 
-      worker.on('error', (err) => {
-        this.logger.error(`Worker crashed`, err.message);
+      worker.on('error', (err: Error) => {
+        cleanup();
+        this.logger.error('Worker error', err);
         reject(err);
       });
 
-      worker.on('exit', (code) => {
+      worker.on('exit', (code: number) => {
         if (code !== 0) {
-          this.logger.error(`Worker stopped with code ${code}`);
+          const err = new Error(`Worker exited with code ${code}`);
+          this.logger.error('Worker exited abnormally', err);
+          // Only reject if not already resolved/rejected
+          if (
+            !worker.listenerCount('message') &&
+            !worker.listenerCount('error')
+          ) {
+            reject(err);
+          }
         }
       });
     });
