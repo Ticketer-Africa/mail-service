@@ -4,14 +4,14 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 
 import { NestFactory } from '@nestjs/core';
-import { Logger, ValidationPipe } from '@nestjs/common';
+import { ConsoleLogger, ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 // import { WinstonModule } from 'nest-winston';   // <-- uncomment if you want Winston
 
 /** ------------------------------------------------------------------
  *  1. Custom Nest logger (pino-style JSON in prod, pretty in dev)
  * ------------------------------------------------------------------ */
-class NestLogger extends Logger {
+class NestLogger extends ConsoleLogger {
   private readonly isProd = process.env.NODE_ENV === 'production';
 
   private format(...args: any[]) {
