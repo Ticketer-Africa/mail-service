@@ -12,6 +12,8 @@ import * as path from 'path';
 // Cache the PQueue class
 let PQueuePromise: Promise<any> | null = null;
 
+
+
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
@@ -22,6 +24,7 @@ export class MailService {
     // Constructor stays sync – lazy init on first use
   }
 
+  
   /** Ensure the PQueue instance is ready */
   private async ensureQueue(): Promise<any> {
     if (this.queue) {
