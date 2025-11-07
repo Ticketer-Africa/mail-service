@@ -5,7 +5,7 @@
 
 import { Injectable, Logger } from '@nestjs/common';
 import { Worker } from 'worker_threads';
-import path from 'path';
+import * as path from 'path';
 
 // Cache the PQueue class
 let PQueuePromise: Promise<any> | null = null;
