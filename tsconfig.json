@@ -1,24 +1,21 @@
 {
   "compilerOptions": {
-    "module": "commonjs",                     // required for Node
-    "target": "ES2023",                       // Vercel supports up to ES2023
-    "outDir": "./dist",                       // <-- Vercel looks here
-    "rootDir": "./src",                       // <-- source root
-    "baseUrl": "./",
+    "module": "commonjs",
     "declaration": true,
-    "sourceMap": true,
+    "removeComments": true,
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "allowSyntheticDefaultImports": true,
+    "target": "ES2023",
+    "sourceMap": true,
+    "outDir": "./dist",
+    "baseUrl": "./",
+    "incremental": true,
     "skipLibCheck": true,
     "strictNullChecks": true,
     "forceConsistentCasingInFileNames": true,
     "noImplicitAny": false,
     "strictBindCallApply": false,
-    "noFallthroughCasesInSwitch": false,
-    "removeComments": true,
-    "incremental": true
-  },
-  "include": ["src/**/*"],                     // <-- make sure src is compiled
-  "exclude": ["node_modules", "dist", "test"]
+    "noFallthroughCasesInSwitch": false
+  }
 }
