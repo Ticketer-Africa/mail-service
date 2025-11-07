@@ -1,17 +1,35 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
+import { ExpressAdapter } from '@nestjs/platform-express';
+import * as express from 'express';
+import serverless from 'serverless-http';
+
+let server: any;
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const expressApp = express();
+  const app = await NestFactory.create(
+    AppModule,
+    new ExpressAdapter(expressApp),
+  );
 
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true, // strip unknown fields
+      whitelist: true,
       forbidNonWhitelisted: true,
-      transform: true, // autotransform payloads into DTOs
+      transform: true,
     }),
   );
-  await app.listen(process.env.PORT ?? 4000);
+
+  await app.init();
+  return serverless(expressApp);
 }
-bootstrap();
+
+export default async function handler(req, res) {
+  if (!server) {
+    server = await bootstrap();
+  }
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
+  return server(req, res);
+}
