@@ -9,7 +9,7 @@ async function bootstrap() {
     new ValidationPipe({
       whitelist: true, // strip unknown fields
       forbidNonWhitelisted: true,
-      transform: true, // auto-transform payloads into DTOs
+      transform: true, // autotransform payloads into DTOs
     }),
   );
   await app.listen(process.env.PORT ?? 4000);
