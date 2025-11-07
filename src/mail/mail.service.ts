@@ -3,22 +3,21 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
-import { Injectable, Logger } from '@nestjs/common';
+import { ConsoleLogger, Injectable } from '@nestjs/common';
 import { Worker } from 'worker_threads';
 import * as path from 'path';
 
 @Injectable()
 export class MailService {
-  private readonly logger = new Logger(MailService.name);
+  private readonly logger = new ConsoleLogger(MailService.name);
   private queue: any = null;
 
   constructor() {}
 
-
   private async getQueue() {
     if (this.queue) return this.queue;
 
-    // Dynamic import only once
+    // Dynamic import only once.
     const PQueue = (await import('p-queue')).default;
     this.queue = new PQueue({
       concurrency: 3,
