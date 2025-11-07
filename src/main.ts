@@ -1,18 +1,14 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-return */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
-import { ExpressAdapter } from '@nestjs/platform-express';
-import * as express from 'express';
-import serverless from 'serverless-http';
 
-let server: any;
+let readyHandler: any = null;
 
-async function bootstrap() {
-  const expressApp = express();
-  const app = await NestFactory.create(
-    AppModule,
-    new ExpressAdapter(expressApp),
-  );
+async function createApp() {
+  const app = await NestFactory.create(AppModule, { logger: false });
 
   app.useGlobalPipes(
     new ValidationPipe({
@@ -22,14 +18,21 @@ async function bootstrap() {
     }),
   );
 
+  app.enableCors({
+    origin: true,
+    credentials: true,
+  });
+
   await app.init();
-  return serverless(expressApp);
+
+  // Extract the underlying Express app
+  const expressApp = app.getHttpAdapter().getInstance();
+  return expressApp;
 }
 
-export default async function handler(req, res) {
-  if (!server) {
-    server = await bootstrap();
+export default async function handler(req: any, res: any) {
+  if (!readyHandler) {
+    readyHandler = await createApp();
   }
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
-  return server(req, res);
+  return readyHandler(req, res);
 }
