@@ -177,12 +177,13 @@ export class MailService implements OnModuleDestroy {
           }
         },
         {
-          store: new SQLiteStore({
-            path: path.resolve(__dirname, '../../queue.db'), // Store in project root
-          }),
-          concurrent: 3, // Process up to 3 emails concurrently
-          maxRetries: 2, // Retry failed tasks twice
-          retryDelay: 1000, // Wait 1 second between retries
+          // Temporarily remove SQLite store to test
+          // store: new SQLiteStore({
+          //   path: path.resolve(__dirname, '../../queue.db'),
+          // }),
+          concurrent: 3,
+          maxRetries: 2,
+          retryDelay: 1000,
         },
       );
 
@@ -213,10 +214,20 @@ export class MailService implements OnModuleDestroy {
     );
 
     return new Promise((resolve, reject) => {
+      this.logger.log(`Pushing task to queue for ${to}`);
+
       queue.push({ to, subject, html, from }, (err: any, result: any) => {
-        if (err) reject(err);
-        else resolve(result);
+        this.logger.log(`Queue callback triggered for ${to}`);
+        if (err) {
+          this.logger.error(`Queue push failed: ${err.message}`);
+          reject(err);
+        } else {
+          this.logger.log(`Queue push successful for ${to}`);
+          resolve(result);
+        }
       });
+
+      this.logger.log(`Task pushed, waiting for callback...`);
     });
   }
 
