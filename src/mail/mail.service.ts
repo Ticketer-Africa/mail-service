@@ -1,112 +1,106 @@
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 /* eslint-disable @typescript-eslint/prefer-promise-reject-errors */
-/* eslint-disable @typescript-eslint/require-await */
-/* eslint-disable @typescript-eslint/no-unsafe-function-type */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-redundant-type-constituents */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-return */
 
 import { Injectable, ConsoleLogger } from '@nestjs/common';
-import BetterQueue from 'better-queue';
-import * as path from 'path';
 import { Worker } from 'worker_threads';
+import * as path from 'path';
+import Queue from 'better-queue';
+import MemoryStore from 'better-queue-memory';
 
 @Injectable()
 export class MailService {
   private readonly logger = new ConsoleLogger(MailService.name);
-  private queue: BetterQueue | null = null;
+  private queue: Queue | null = null;
 
-  constructor() {}
+  constructor() {
+    this.initQueue();
+  }
 
   private initQueue() {
-    if (this.queue) return this.queue;
+    if (this.queue) return;
 
     try {
       this.logger.log('Initializing mail queue...');
-
-      // Use BetterQueue with worker
-      const workerFile = path.resolve(
-        __dirname,
-        process.env.NODE_ENV === 'production'
-          ? 'mail.worker.js'
-          : 'mail.worker.ts',
-      );
-
-      this.queue = new BetterQueue(
-        async (task: any, cb: Function) => {
-          this.logger.log(`Processing mail task for ${task.to}`);
-
-          const isDev = process.env.NODE_ENV !== 'production';
-
+      this.queue = new Queue(
+        async (task) => {
           try {
-            const worker = new Worker(
-              isDev
-                ? `require('ts-node').register(); require('${workerFile}')`
-                : workerFile,
-              isDev ? { eval: true, workerData: task } : { workerData: task },
-            );
-
-            worker.on('message', (msg) => {
-              if (msg.success) {
-                this.logger.log(`Mail sent successfully → ${msg.to}`);
-                cb(null, msg);
-              } else {
-                this.logger.error(
-                  `Failed to send mail to ${msg.to} | ${msg.error}`,
-                );
-                cb(new Error(msg.error));
-              }
-            });
-
-            worker.on('error', (err) => {
-              this.logger.error(
-                `Worker error sending mail to ${task.to} | ${err.message}`,
-              );
-              cb(err);
-            });
-
-            worker.on('exit', (code) => {
-              if (code !== 0) {
-                const msg = `Worker exited with code ${code}`;
-                this.logger.error(msg);
-                cb(new Error(msg));
-              }
-            });
+            this.logger.debug(`Processing mail task for ${task.to}`);
+            const result = await this.runWorker(task);
+            this.logger.log(`Mail sent successfully to ${task.to}`);
+            return result;
           } catch (err: any) {
             this.logger.error(
-              `Failed to spawn worker for ${task.to} | ${err.message}`,
+              `Error in worker for ${task.to}: ${err?.message}`,
             );
-            cb(err);
+            throw err; // queue handles retry
           }
         },
         {
-          concurrent: 3, // concurrent mails
+          concurrent: 3,
           maxRetries: 2,
           retryDelay: 1000,
+          afterProcessDelay: 500,
         },
       );
 
-      this.logger.log('Mail queue initialized');
-      return this.queue;
-    } catch (err: any) {
-      this.logger.error(`Fatal error initializing queue | ${err.message}`);
-      throw err;
+      this.queue.on('task_failed', (task, err) => {
+        this.logger.error(`Task failed for ${task.to}: ${err?.message}`);
+      });
+
+      this.queue.on('task_finish', (task, result) => {
+        this.logger.debug(`Task finished for ${task.to}`);
+      });
+
+      this.logger.log('Mail queue initialized successfully');
+    } catch (err) {
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+      this.logger.error('Fatal error initializing queue', err as any);
+      process.exit(1); // log and exit explicitly if truly unrecoverable
     }
   }
 
-  async sendMail(to: string, subject: string, html: string, from?: string) {
-    const queue = this.initQueue();
+  async sendMail(
+    to: string,
+    subject: string,
+    html: string,
+    from?: string,
+  ): Promise<any> {
+    if (!this.queue) this.initQueue();
 
-    this.logger.verbose(
-      `Enqueuing mail for ${to} | Subject: ${subject} | From: ${from || 'default'}`,
-    );
-
+    this.logger.verbose(`Enqueuing mail for ${to} | Subject: ${subject}`);
     return new Promise((resolve, reject) => {
-      queue.push({ to, subject, html, from }, (err: any, result: any) => {
-        if (err) reject(err);
-        else resolve(result);
+      this.queue?.push({ to, subject, html, from }, (err: any, result: any) => {
+        if (err) return reject(err);
+        resolve(result);
+      });
+    });
+  }
+
+  private runWorker(data: {
+    to: string;
+    subject: string;
+    html: string;
+    from?: string;
+  }) {
+    return new Promise((resolve, reject) => {
+      const workerPath = path.resolve(__dirname, 'mail.worker.js');
+
+      this.logger.debug(`Spawning worker for ${data.to}`);
+      const worker = new Worker(workerPath, { workerData: data });
+
+      worker.on('message', (msg) => {
+        if (msg.success) resolve(msg);
+        else reject(new Error(msg.error));
+      });
+
+      worker.on('error', (err) => reject(err));
+      worker.on('exit', (code) => {
+        if (code !== 0) reject(new Error(`Worker exited with code ${code}`));
       });
     });
   }
