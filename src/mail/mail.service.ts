@@ -10,13 +10,22 @@
 
 import { Injectable, ConsoleLogger } from '@nestjs/common';
 import BetterQueue from 'better-queue';
+import * as SQLiteStore from 'better-queue-sqlite';
 import * as path from 'path';
 import { Worker } from 'worker_threads';
+
+// Define the MailTask interface for type safety
+interface MailTask {
+  to: string;
+  subject: string;
+  html: string;
+  from?: string;
+}
 
 @Injectable()
 export class MailService {
   private readonly logger = new ConsoleLogger(MailService.name);
-  private queue: BetterQueue | null = null;
+  private queue: BetterQueue<MailTask> | null = null;
 
   constructor() {}
 
@@ -26,7 +35,6 @@ export class MailService {
     try {
       this.logger.log('Initializing mail queue...');
 
-      // Use BetterQueue with worker
       const workerFile = path.resolve(
         __dirname,
         process.env.NODE_ENV === 'production'
@@ -34,8 +42,11 @@ export class MailService {
           : 'mail.worker.ts',
       );
 
-      this.queue = new BetterQueue(
-        async (task: any, cb: Function) => {
+      this.queue = new BetterQueue<MailTask>(
+        async (
+          task: MailTask,
+          cb: (error: Error | null, result?: any) => void,
+        ) => {
           this.logger.log(`Processing mail task for ${task.to}`);
 
           const isDev = process.env.NODE_ENV !== 'production';
@@ -82,13 +93,25 @@ export class MailService {
           }
         },
         {
-          concurrent: 3, // concurrent mails
-          maxRetries: 2,
-          retryDelay: 1000,
+          store: new SQLiteStore({
+            path: path.resolve(__dirname, 'queue.db'), // SQLite database file
+          }),
+          concurrent: 3, // Process up to 3 emails concurrently
+          maxRetries: 2, // Retry failed tasks twice
+          retryDelay: 1000, // Wait 1 second between retries
         },
       );
 
-      this.logger.log('Mail queue initialized');
+      // Add queue event listeners for monitoring
+      this.queue.on('task_finish', (taskId, result) => {
+        this.logger.log(`Task ${taskId} completed: ${JSON.stringify(result)}`);
+      });
+
+      this.queue.on('task_failed', (taskId, err) => {
+        this.logger.error(`Task ${taskId} failed: ${err.message}`);
+      });
+
+      this.logger.log('Mail queue initialized with SQLite store');
       return this.queue;
     } catch (err: any) {
       this.logger.error(`Fatal error initializing queue | ${err.message}`);
