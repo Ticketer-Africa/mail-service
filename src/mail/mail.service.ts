@@ -8,9 +8,11 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Injectable, ConsoleLogger, OnModuleDestroy } from '@nestjs/common';
 import BetterQueue from 'better-queue';
-import * as SQLiteStore from 'better-queue-sqlite';
 import * as path from 'path';
 import { Worker } from 'worker_threads';
+
+// Import SQLiteStore as a CommonJS module
+const SQLiteStore = require('better-queue-sqlite');
 
 // Define the MailTask interface for type safety
 interface MailTask {
