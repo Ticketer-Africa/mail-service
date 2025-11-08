@@ -15,28 +15,22 @@ export class MailService {
 
   /** Lazy-load queue */
   private async getQueue() {
-    if (this.queue) {
-      this.logger.debug('Queue already exists – reusing it');
-      return this.queue;
-    }
+    if (this.queue) return this.queue;
 
     this.logger.log('Initializing mail queue...');
     try {
-      const PQueue = (await import('p-queue')).default;
-
+      const { default: PQueue } = await import('p-queue');
       this.queue = new PQueue({
         concurrency: 3,
         interval: 1000,
         intervalCap: 10,
       });
-
       this.logger.log('Mail queue initialized successfully');
-    } catch (err: any) {
+      return this.queue;
+    } catch (err) {
       this.logger.error('Failed to import or initialize PQueue', err.stack);
       throw err;
     }
-
-    return this.queue;
   }
 
   /** Enqueue mail */
