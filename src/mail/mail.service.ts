@@ -23,43 +23,44 @@ export class MailService {
   private initQueue() {
     if (this.queue) return;
 
-    this.logger.log('Initializing mail queue...');
-    this.queue = new Queue(
-      async (task: {
-        to: string;
-        subject: string;
-        html: string;
-        from?: string;
-      }) => {
-        this.logger.debug(`Processing mail task for ${task.to}`);
-        try {
-          const result = await this.runWorker(task);
-          this.logger.log(`Mail sent successfully to ${task.to}`);
-          return result;
-        } catch (err: any) {
-          this.logger.error(
-            `Failed to send mail to ${task.to}: ${err.message}`,
-          );
-          throw err;
-        }
-      },
-      {
-        concurrent: 3, // Number of concurrent mail sends
-        maxRetries: 2, // Retry failed jobs
-        retryDelay: 1000, // 1 second before retry
-        afterProcessDelay: 500, // slight delay between jobs
-      },
-    );
+    try {
+      this.logger.log('Initializing mail queue...');
+      this.queue = new Queue(
+        async (task) => {
+          try {
+            this.logger.debug(`Processing mail task for ${task.to}`);
+            const result = await this.runWorker(task);
+            this.logger.log(`Mail sent successfully to ${task.to}`);
+            return result;
+          } catch (err: any) {
+            this.logger.error(
+              `Error in worker for ${task.to}: ${err?.message}`,
+            );
+            throw err; // queue handles retry
+          }
+        },
+        {
+          concurrent: 3,
+          maxRetries: 2,
+          retryDelay: 1000,
+          afterProcessDelay: 500,
+        },
+      );
 
-    this.queue.on('task_failed', (task, err) => {
-      this.logger.error(`Task failed for ${task.to}: ${err.message}`);
-    });
+      this.queue.on('task_failed', (task, err) => {
+        this.logger.error(`Task failed for ${task.to}: ${err?.message}`);
+      });
 
-    this.queue.on('task_finish', (task, _) => {
-      this.logger.debug(`Task finished for ${task.to}`);
-    });
+      this.queue.on('task_finish', (task, result) => {
+        this.logger.debug(`Task finished for ${task.to}`);
+      });
 
-    this.logger.log('Mail queue initialized successfully');
+      this.logger.log('Mail queue initialized successfully');
+    } catch (err) {
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+      this.logger.error('Fatal error initializing queue', err as any);
+      process.exit(1); // log and exit explicitly if truly unrecoverable
+    }
   }
 
   async sendMail(
