@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 /* eslint-disable @typescript-eslint/no-floating-promises */
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 /* eslint-disable @typescript-eslint/require-await */
@@ -65,35 +66,57 @@ export class MailService implements OnModuleDestroy {
     try {
       this.logger.log('Initializing mail queue...');
 
-      const isDev = process.env.NODE_ENV !== 'production';
-      const workerFile = path.resolve(
-        __dirname,
-        isDev ? 'mail.worker.ts' : 'mail.worker.js',
-      );
+      // Inline worker code
+      const workerCode = `
+        const { parentPort, workerData } = require('worker_threads');
+        const nodemailer = require('nodemailer');
+
+        async function sendMail() {
+          const { to, subject, html, from } = workerData;
+
+          try {
+            const transporter = nodemailer.createTransport({
+              service: 'gmail',
+              auth: {
+                user: process.env.MAIL_USER,
+                pass: process.env.MAIL_PASS,
+              },
+            });
+
+            await transporter.sendMail({
+              from: from || \`"Ticketer" <\${process.env.MAIL_USER}>\`,
+              to,
+              subject,
+              html,
+            });
+
+            parentPort.postMessage({ success: true, to });
+          } catch (err) {
+            parentPort.postMessage({
+              success: false,
+              error: err.message || 'Unknown error',
+              to,
+            });
+          }
+        }
+
+        sendMail();
+      `;
 
       this.queue = new BetterQueue<MailTask>(
-        async (
-          task: MailTask,
-          cb: (error: Error | null, result?: any) => void,
-        ) => {
+        (task: MailTask, cb: (error: Error | null, result?: any) => void) => {
           this.logger.log(`Processing mail task for ${task.to}`);
 
           let worker: Worker | null = null;
 
           try {
-            // Simplified worker creation
-            if (isDev) {
-              // For development, use ts-node/register in worker
-              worker = new Worker(workerFile, {
-                workerData: task,
-                execArgv: ['--require', 'ts-node/register'],
-              });
-            } else {
-              // For production, use compiled JS
-              worker = new Worker(workerFile, {
-                workerData: task,
-              });
-            }
+            // Create worker with inline code
+            worker = new Worker(workerCode, {
+              eval: true,
+              workerData: task,
+            });
+
+            this.logger.log(`Worker created for ${task.to}`);
 
             this.activeWorkers.add(worker);
 
@@ -110,15 +133,15 @@ export class MailService implements OnModuleDestroy {
 
               if (msg.success) {
                 this.logger.log(`Mail sent successfully → ${msg.to}`);
+                worker?.terminate();
                 cb(null, msg);
               } else {
                 this.logger.error(
                   `Failed to send mail to ${msg.to} | ${msg.error}`,
                 );
+                worker?.terminate();
                 cb(new Error(msg.error));
               }
-
-              worker?.terminate();
             });
 
             worker.on('error', (err) => {
