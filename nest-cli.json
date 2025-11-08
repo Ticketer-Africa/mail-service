@@ -4,5 +4,6 @@
   "sourceRoot": "src",
   "compilerOptions": {
     "deleteOutDir": true
-  }
+  },
+  "assets": [{ "include": "src/mail/mail.worker.ts", "outDir": "dist/mail" }]
 }
