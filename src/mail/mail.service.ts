@@ -29,7 +29,12 @@ export class MailService {
     return this.queue;
   }
 
-  async sendMail(to: string, subject: string, html: string) {
+  async sendMail(
+    to: string,
+    subject: string,
+    html: string,
+    from: string | undefined,
+  ) {
     const queue = await this.getQueue();
 
     return queue.add(() => this.runWorker({ to, subject, html }));
