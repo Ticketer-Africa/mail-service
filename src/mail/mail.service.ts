@@ -52,7 +52,7 @@ export class MailService {
     from?: string,
   ): Promise<void> {
     const mailOptions: nodemailer.SendMailOptions = {
-      from: from || `"Ticketer" <${process.env.MAIL_USER}>`,
+      from: `"Ticketer Africa" <${process.env.MAIL_USER}>`,
       to,
       subject,
       html,
