@@ -22,7 +22,7 @@ export class MailService {
   }
 
   private initializeTransporter() {
-    // Use Gmail SMTP - more reliable than OAuth2 in serverless
+    // Use Gmail SMTP : more reliable than OAuth2 in serverless
     this.transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
