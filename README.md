@@ -1,4 +1,4 @@
-## ⚖️ Intellectual Property Notice
+## Intellectual Property Notice
 
 © Ticketer, 2025. All rights reserved.
 
@@ -8,7 +8,7 @@ The content of this repository is protected under applicable intellectual proper
 
 ---
 
-## 📜 Usage Terms
+## Usage Terms
 
 Unless otherwise stated:
 
@@ -19,23 +19,23 @@ Unless otherwise stated:
 
 ---
 
-## 🔐 License
+## License
 
 This project is governed by a **Proprietary License**.  
 It is not open source. All rights are retained by **Ticketer**.
 
 If you are interested in a license or partnership, please contact:  
-📧 **legal@ticketer.ng** (replace with actual email if available)
+**legal@ticketer.ng** (replace with actual email if available)
 
 ---
 
-## ❗ Disclaimer
+## Disclaimer
 
 This repository may contain proprietary algorithms, business logic, and trade secrets.  
 Any attempt to reverse engineer, replicate, or utilize these assets without proper authorization constitutes a breach of contract and violation of intellectual property law.
 
 ---
 
-## 📌 TL;DR
+## TL;DR
 
 > Ticketer owns this. It’s not yours. Don’t touch without permission.
